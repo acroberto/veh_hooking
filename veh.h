@@ -2,57 +2,81 @@
 #include <Windows.h>
 #include <vector>
 
-LONG Handler(EXCEPTION_POINTERS* exception_info);
+LONG VectoredExceptionHandler(EXCEPTION_POINTERS* exception_info);
+
+struct HookInfo_t
+{
+    uintptr_t source;
+    uintptr_t destination;
+    DWORD old_protection;
+};
 
 namespace veh
 {
     bool Setup();
-    bool Hook(uintptr_t original, uintptr_t hook);
-    bool Unhook(uintptr_t original);
+    bool Hook(uintptr_t source, uintptr_t destination);
+    bool Unhook(uintptr_t source);
     bool UnhookAll();
     bool AreInSamePage(uintptr_t first, uintptr_t second);
 
+    inline SYSTEM_INFO system_info;
     inline PVOID handler;
-    inline std::vector<std::pair<uintptr_t, uintptr_t>> hooks;
+    inline std::vector<HookInfo_t> hooks;
 }
 
 bool veh::Setup()
 {
-    handler = AddVectoredExceptionHandler(1, Handler);
+    GetSystemInfo(&system_info);
+    handler = AddVectoredExceptionHandler(1, VectoredExceptionHandler);
 
     return handler;
 }
 
-bool veh::Hook(uintptr_t original, uintptr_t hook)
+bool veh::Hook(uintptr_t source, uintptr_t destination)
 {
     if (!handler)
         return false;
 
-    if (AreInSamePage(original, hook))
+    if (AreInSamePage(source, destination))
         return false;
 
-    DWORD tmp;
-    if (VirtualProtect((LPVOID)original, 0x1000, PAGE_EXECUTE_READ | PAGE_GUARD, &tmp))
+    MEMORY_BASIC_INFORMATION info;
+    if (!VirtualQuery((LPCVOID)source, &info, sizeof(MEMORY_BASIC_INFORMATION)))
+        return false;
+    
+    DWORD old_protection;
+    if (VirtualProtect((LPVOID)source, system_info.dwPageSize, info.Protect | PAGE_GUARD, &old_protection))
     {
-        hooks.push_back(std::make_pair(original, hook));
+        HookInfo_t new_hook
+        {
+            source,
+            destination,
+            old_protection
+        };
+
+        hooks.push_back(new_hook);
         return true;
     }
 
 	return false;
 }
 
-bool veh::Unhook(uintptr_t original)
+bool veh::Unhook(uintptr_t source)
 {
-    DWORD tmp;
-    if (VirtualProtect((LPVOID)original, 0x1000, PAGE_EXECUTE_READ, &tmp))
+    for (HookInfo_t& hook_info : hooks)
     {
-        for (std::pair<uintptr_t, uintptr_t>& hook : hooks)
+        if (hook_info.source == source)
         {
-            if (hook.first == original)
-            {
-                hooks.erase(std::remove(hooks.begin(), hooks.end(), hook), hooks.end());
-                return true;
-            }
+            DWORD tmp;
+            if (!VirtualProtect((LPVOID)source, system_info.dwPageSize, hook_info.old_protection, &tmp))
+                return false;
+
+            hooks.erase(std::remove_if(hooks.begin(), hooks.end(), [&hook_info](const HookInfo_t& element)
+                {
+                    return element.source == hook_info.source;
+                }));
+
+            return true;
         }
     }
 
@@ -63,9 +87,9 @@ bool veh::UnhookAll()
 {
     bool result = true;
 
-    for (std::pair<uintptr_t, uintptr_t>& hook : hooks)
+    for (HookInfo_t& hook_info : hooks)
     {
-        if (!Unhook(hook.first))
+        if (!Unhook(hook_info.source))
         {
             result = false;
         }
@@ -87,15 +111,15 @@ bool veh::AreInSamePage(uintptr_t first, uintptr_t second)
     return (info1.BaseAddress == info2.BaseAddress);
 }
 
-LONG Handler(EXCEPTION_POINTERS* exception_info)
+LONG VectoredExceptionHandler(EXCEPTION_POINTERS* exception_info)
 {
     if (exception_info->ExceptionRecord->ExceptionCode == EXCEPTION_GUARD_PAGE)
     {
-        for (std::pair<uintptr_t, uintptr_t>& hook : veh::hooks)
+        for (HookInfo_t& hook_info : veh::hooks)
         {
-            if (exception_info->ContextRecord->Rip == hook.first)
+            if (exception_info->ContextRecord->Rip == hook_info.source)
             {
-                exception_info->ContextRecord->Rip = hook.second;
+                exception_info->ContextRecord->Rip = hook_info.destination;
             }
         }
 
@@ -105,10 +129,10 @@ LONG Handler(EXCEPTION_POINTERS* exception_info)
 
     if (exception_info->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP)
     {
-        for (std::pair<uintptr_t, uintptr_t>& hook : veh::hooks)
+        for (HookInfo_t& hook : veh::hooks)
         {
             DWORD tmp;
-            VirtualProtect((LPVOID)hook.first, 0x1000, PAGE_EXECUTE_READ | PAGE_GUARD, &tmp);
+            VirtualProtect((LPVOID)hook.source, veh::system_info.dwPageSize, hook.old_protection | PAGE_GUARD, &tmp);
         }
 
         return EXCEPTION_CONTINUE_EXECUTION;
