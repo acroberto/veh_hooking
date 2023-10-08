@@ -1,5 +1,5 @@
 # veh_hooking
-Hooking through VectoredExceptionHandler (PageGuard)
+Hooking through VectoredExceptionHandler (PAGE_GUARD method)
 
 Slow but anti-cheat safe
 
