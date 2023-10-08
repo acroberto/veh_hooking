@@ -38,7 +38,7 @@ bool veh::Hook(uintptr_t original, uintptr_t hook)
         return true;
     }
 
-    return false;
+	return false;
 }
 
 bool veh::Unhook(uintptr_t original)
