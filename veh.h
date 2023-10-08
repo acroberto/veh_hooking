@@ -6,18 +6,18 @@ LONG VectoredExceptionHandler(EXCEPTION_POINTERS* exception_info);
 
 struct HookInfo_t
 {
-    uintptr_t source;
-    uintptr_t destination;
+    void* source;
+    void* destination;
     DWORD old_protection;
 };
 
 namespace veh
 {
     bool Setup();
-    bool Hook(uintptr_t source, uintptr_t destination);
-    bool Unhook(uintptr_t source);
+    bool Hook(void* source, void* destination);
+    bool Unhook(void* source);
     bool UnhookAll();
-    bool AreInSamePage(uintptr_t first, uintptr_t second);
+    bool AreInSamePage(void* first, void* second);
 
     inline SYSTEM_INFO system_info;
     inline PVOID handler;
@@ -32,7 +32,7 @@ bool veh::Setup()
     return handler;
 }
 
-bool veh::Hook(uintptr_t source, uintptr_t destination)
+bool veh::Hook(void* source, void* destination)
 {
     if (!handler)
         return false;
@@ -41,11 +41,11 @@ bool veh::Hook(uintptr_t source, uintptr_t destination)
         return false;
 
     MEMORY_BASIC_INFORMATION info;
-    if (!VirtualQuery((LPCVOID)source, &info, sizeof(MEMORY_BASIC_INFORMATION)))
+    if (!VirtualQuery(source, &info, sizeof(MEMORY_BASIC_INFORMATION)))
         return false;
     
     DWORD old_protection;
-    if (VirtualProtect((LPVOID)source, system_info.dwPageSize, info.Protect | PAGE_GUARD, &old_protection))
+    if (VirtualProtect(source, system_info.dwPageSize, info.Protect | PAGE_GUARD, &old_protection))
     {
         HookInfo_t new_hook
         {
@@ -61,14 +61,14 @@ bool veh::Hook(uintptr_t source, uintptr_t destination)
 	return false;
 }
 
-bool veh::Unhook(uintptr_t source)
+bool veh::Unhook(void* source)
 {
     for (HookInfo_t& hook_info : hooks)
     {
         if (hook_info.source == source)
         {
             DWORD tmp;
-            if (!VirtualProtect((LPVOID)source, system_info.dwPageSize, hook_info.old_protection, &tmp))
+            if (!VirtualProtect(source, system_info.dwPageSize, hook_info.old_protection, &tmp))
                 return false;
 
             hooks.erase(std::remove_if(hooks.begin(), hooks.end(), [&hook_info](const HookInfo_t& element)
@@ -98,14 +98,14 @@ bool veh::UnhookAll()
     return result;
 }
 
-bool veh::AreInSamePage(uintptr_t first, uintptr_t second)
+bool veh::AreInSamePage(void* first, void* second)
 {
     MEMORY_BASIC_INFORMATION info1;
-    if (!VirtualQuery((LPCVOID)first, &info1, sizeof(MEMORY_BASIC_INFORMATION)))
+    if (!VirtualQuery(first, &info1, sizeof(MEMORY_BASIC_INFORMATION)))
         return true;
 
     MEMORY_BASIC_INFORMATION info2;
-    if (!VirtualQuery((LPCVOID)second, &info2, sizeof(MEMORY_BASIC_INFORMATION)))
+    if (!VirtualQuery(second, &info2, sizeof(MEMORY_BASIC_INFORMATION)))
         return true;
 
     return (info1.BaseAddress == info2.BaseAddress);
@@ -117,9 +117,9 @@ LONG VectoredExceptionHandler(EXCEPTION_POINTERS* exception_info)
     {
         for (HookInfo_t& hook_info : veh::hooks)
         {
-            if (exception_info->ContextRecord->Rip == hook_info.source)
+            if (exception_info->ContextRecord->Rip == (DWORD64)hook_info.source)
             {
-                exception_info->ContextRecord->Rip = hook_info.destination;
+                exception_info->ContextRecord->Rip = (DWORD64)hook_info.destination;
             }
         }
 
@@ -132,7 +132,7 @@ LONG VectoredExceptionHandler(EXCEPTION_POINTERS* exception_info)
         for (HookInfo_t& hook : veh::hooks)
         {
             DWORD tmp;
-            VirtualProtect((LPVOID)hook.source, veh::system_info.dwPageSize, hook.old_protection | PAGE_GUARD, &tmp);
+            VirtualProtect(hook.source, veh::system_info.dwPageSize, hook.old_protection | PAGE_GUARD, &tmp);
         }
 
         return EXCEPTION_CONTINUE_EXECUTION;
