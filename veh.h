@@ -72,9 +72,9 @@ bool veh::Unhook(void* source)
                     break;
                 }
             }
-        }
 
-        break;
+            break;
+        }
     }
 
     if (lonely_hook)
@@ -141,8 +141,7 @@ LONG veh::VectoredExceptionHandler(EXCEPTION_POINTERS* exception_info)
         exception_info->ContextRecord->EFlags |= PAGE_GUARD;
         return EXCEPTION_CONTINUE_EXECUTION;
     }
-
-    if (exception_info->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP)
+    else if (exception_info->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP)
     {
         for (HookInfo_t& hook : hooks)
         {
@@ -168,6 +167,7 @@ ReturnType veh::CallOriginal(Prototype source, Args... args)
             Unhook(source);
             result = source(args...);
             Hook(source, hook_info.destination);
+            break;
         }
     }
 
