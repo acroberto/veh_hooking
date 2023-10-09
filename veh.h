@@ -14,6 +14,7 @@ namespace veh
     bool Hook(void* source, void* destination);
     bool Unhook(void* source);
     bool UnhookAll();
+    void Destroy();
     bool AreInSamePage(void* first, void* second);
     LONG VectoredExceptionHandler(EXCEPTION_POINTERS* exception_info);
 
@@ -104,6 +105,12 @@ bool veh::UnhookAll()
     }
 
     return result;
+}
+
+void veh::Destroy()
+{
+    RemoveVectoredExceptionHandler(VectoredExceptionHandler);
+    handler = nullptr;
 }
 
 bool veh::AreInSamePage(void* first, void* second)
