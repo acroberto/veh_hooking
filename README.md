@@ -6,5 +6,6 @@ Slow but anti-cheat safe
 # How To Use
 - Call veh::Setup()
 - Hook functions through veh::Hook()
+- When done unhook functions (veh::Unhook / veh::UnhookAll) and call veh::Destroy()
 
-To call the original function from inside the hooked function, you must first unhook and then hook again afterwards
+To call the original function use veh::CallOriginal<ReturnType>(original, args)
