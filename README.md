@@ -1,7 +1,7 @@
 # veh_hooking
 x64 Function Hooking through VectoredExceptionHandler (PAGE_GUARD method)
 
-Slow but anti-cheat safe
+Anti-cheat safe and no impact on performance
 
 # How To Use
 - Call veh::Setup()
