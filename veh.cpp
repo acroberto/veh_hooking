@@ -20,57 +20,51 @@ bool veh::Hook(void* source, void* destination)
     if (!VirtualProtect(source, system_info.dwPageSize, PAGE_EXECUTE_READ | PAGE_GUARD, &tmp))
         return false;
 
-    HookInfo_t new_hook
-    {
-        source,
-        destination
-    };
-
-    hooks.push_back(new_hook);
+    hooks.push_back({ source, destination });
     return true;
 }
 
 bool veh::Unhook(void* source)
 {
-    bool lonely_hook = true;
-
-    for (HookInfo_t hook_info : veh::hooks)
+    for (HookInfo_t& hook_info : hooks)
     {
-        if (hook_info.source == source)
+        if (hook_info.source != source)
+            continue;
+
+        bool lonely_hook = true;
+
+        for (HookInfo_t& _hook_info : hooks)
         {
-            for (HookInfo_t _hook_info : hooks)
+            if (hook_info.source != _hook_info.source && AreInSamePage(hook_info.source, _hook_info.source))
             {
-                if (hook_info.source != _hook_info.source && AreInSamePage(hook_info.source, _hook_info.source))
-                {
-                    lonely_hook = false;
-                    break;
-                }
+                lonely_hook = false;
+                break;
             }
-
-            break;
         }
-    }
 
-    if (lonely_hook)
-    {
-        DWORD tmp;
-        if (!VirtualProtect(source, system_info.dwPageSize, PAGE_EXECUTE_READ, &tmp))
-            return false;
-    }
-
-    hooks.erase(std::remove_if(hooks.begin(), hooks.end(), [&](HookInfo_t hook_info)
+        if (lonely_hook)
         {
-            return hook_info.source == source;
-        }));
+            DWORD tmp;
+            if (!VirtualProtect(source, system_info.dwPageSize, PAGE_EXECUTE_READ, &tmp))
+                return false;
+        }
 
-    return true;
+        hooks.erase(std::remove_if(hooks.begin(), hooks.end(), [&](HookInfo_t& _hook_info)
+            {
+                return (_hook_info.source == hook_info.source);
+            }), hooks.end());
+
+        return true;
+    }
+
+    return false;
 }
 
 bool veh::UnhookAll()
 {
     bool result = true;
 
-    for (HookInfo_t hook_info : hooks)
+    for (HookInfo_t& hook_info : hooks)
     {
         if (!Unhook(hook_info.source))
         {
@@ -104,7 +98,7 @@ LONG veh::VectoredExceptionHandler(EXCEPTION_POINTERS* exception_info)
 {
     if (exception_info->ExceptionRecord->ExceptionCode == EXCEPTION_GUARD_PAGE)
     {
-        for (HookInfo_t hook_info : hooks)
+        for (HookInfo_t& hook_info : hooks)
         {
             if (exception_info->ContextRecord->Rip == (DWORD64)hook_info.source)
             {
@@ -117,7 +111,7 @@ LONG veh::VectoredExceptionHandler(EXCEPTION_POINTERS* exception_info)
     }
     else if (exception_info->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP)
     {
-        for (HookInfo_t hook_info : hooks)
+        for (HookInfo_t& hook_info : hooks)
         {
             DWORD tmp;
             VirtualProtect(hook_info.source, system_info.dwPageSize, PAGE_EXECUTE_READ | PAGE_GUARD, &tmp);
