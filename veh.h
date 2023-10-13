@@ -29,16 +29,9 @@ namespace veh
 template <typename ReturnType, typename Prototype, typename... Args>
 ReturnType veh::CallOriginal(Prototype source, Args... args)
 {
-    for (HookInfo_t hook_info : hooks)
-    {
-        if (hook_info.source == source)
-        {
-            Unhook(source);
-            ReturnType result = source(args...);
-            Hook(source, hook_info.destination);
-            return result;
-        }
-    }
-
-    return source(args...);
+    DWORD old_protection;
+    VirtualProtect(source, system_info.dwPageSize, PAGE_EXECUTE_READ, &old_protection);
+    ReturnType result = source(args...);
+    VirtualProtect(source, system_info.dwPageSize, old_protection, &old_protection);
+    return result;
 }
