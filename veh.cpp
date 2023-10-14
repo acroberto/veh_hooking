@@ -3,14 +3,14 @@
 bool veh::Setup()
 {
     GetSystemInfo(&system_info);
-    handler = AddVectoredExceptionHandler(1, VectoredExceptionHandler);
+    handle = AddVectoredExceptionHandler(1, VectoredExceptionHandler);
 
-    return handler;
+    return handle;
 }
 
 bool veh::Hook(void* source, void* destination)
 {
-    if (!handler)
+    if (!handle)
         return false;
 
     if (AreInSamePage(source, destination))
@@ -81,8 +81,8 @@ bool veh::UnhookAll()
 
 void veh::Destroy()
 {
-    RemoveVectoredExceptionHandler(handler);
-    handler = nullptr;
+    RemoveVectoredExceptionHandler(handle);
+    handle = nullptr;
 }
 
 bool veh::AreInSamePage(void* first, void* second)
