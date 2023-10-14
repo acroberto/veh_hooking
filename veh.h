@@ -24,7 +24,7 @@ namespace veh
     ReturnType CallOriginal(Prototype source, Args... args);
 
     inline SYSTEM_INFO system_info;
-    inline PVOID handler;
+    inline PVOID handle;
     inline std::vector<HookInfo_t> hooks;
 }
 
