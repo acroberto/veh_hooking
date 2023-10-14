@@ -35,12 +35,21 @@ bool veh::Unhook(void* source)
 
         for (HookInfo_t& _hook_info : hooks)
         {
-            if (hook_info.source != _hook_info.source && AreInSamePage(hook_info.source, _hook_info.source))
+            if (hook_info == _hook_info)
+                continue;
+
+            if (AreInSamePage(hook_info.source, _hook_info.source))
             {
                 lonely_hook = false;
                 break;
             }
         }
+
+        hooks.erase(std::remove_if(hooks.begin(), hooks.end(), [&](HookInfo_t& _hook_info)
+            {
+                return (hook_info == _hook_info);
+            }
+        ), hooks.end());
 
         if (lonely_hook)
         {
@@ -48,11 +57,6 @@ bool veh::Unhook(void* source)
             if (!VirtualProtect(source, system_info.dwPageSize, PAGE_EXECUTE_READ, &tmp))
                 return false;
         }
-
-        hooks.erase(std::remove_if(hooks.begin(), hooks.end(), [&](HookInfo_t& _hook_info)
-            {
-                return (_hook_info.source == hook_info.source);
-            }), hooks.end());
 
         return true;
     }
