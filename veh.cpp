@@ -77,7 +77,7 @@ bool veh::UnhookAll()
 
 void veh::Destroy()
 {
-    RemoveVectoredExceptionHandler(VectoredExceptionHandler);
+    RemoveVectoredExceptionHandler(handler);
     handler = nullptr;
 }
 
@@ -100,10 +100,17 @@ LONG veh::VectoredExceptionHandler(EXCEPTION_POINTERS* exception_info)
     {
         for (HookInfo_t& hook_info : hooks)
         {
+#ifdef _WIN64            
             if (exception_info->ContextRecord->Rip == (DWORD64)hook_info.source)
             {
                 exception_info->ContextRecord->Rip = (DWORD64)hook_info.destination;
             }
+#else
+            if (exception_info->ContextRecord->Eip == (DWORD64)hook_info.source)
+            {
+                exception_info->ContextRecord->Eip = (DWORD64)hook_info.destination;
+            }
+#endif
         }
 
         exception_info->ContextRecord->EFlags |= PAGE_GUARD;
