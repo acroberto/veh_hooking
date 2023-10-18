@@ -16,11 +16,9 @@ bool veh::Hook(void* source, void* destination)
     if (AreInSamePage(source, destination))
         return false;
 
-    DWORD tmp;
-    if (!VirtualProtect(source, system_info.dwPageSize, PAGE_EXECUTE_READ | PAGE_GUARD, &tmp))
-        return false;
-
     hooks.push_back({ source, destination });
+    DWORD tmp;
+    VirtualProtect(source, system_info.dwPageSize, PAGE_EXECUTE_READ | PAGE_GUARD, &tmp);
     return true;
 }
 
@@ -45,18 +43,17 @@ bool veh::Unhook(void* source)
             }
         }
 
+        if (lonely_hook)
+        {
+            DWORD tmp;
+            VirtualProtect(source, system_info.dwPageSize, PAGE_EXECUTE_READ, &tmp);
+        }
+
         hooks.erase(std::remove_if(hooks.begin(), hooks.end(), [&](HookInfo_t& _hook_info)
             {
                 return (hook_info == _hook_info);
             }
         ), hooks.end());
-
-        if (lonely_hook)
-        {
-            DWORD tmp;
-            if (!VirtualProtect(source, system_info.dwPageSize, PAGE_EXECUTE_READ, &tmp))
-                return false;
-        }
 
         return true;
     }
@@ -95,13 +92,17 @@ bool veh::AreInSamePage(void* first, void* second)
     if (!VirtualQuery(second, &destination_info, sizeof(MEMORY_BASIC_INFORMATION)))
         return true;
 
-    return (source_info.BaseAddress == destination_info.BaseAddress);
+    return (source_info.AllocationBase == destination_info.AllocationBase);
 }
 
 LONG veh::VectoredExceptionHandler(EXCEPTION_POINTERS* exception_info)
 {
+    static void* exception_address{};
+
     if (exception_info->ExceptionRecord->ExceptionCode == EXCEPTION_GUARD_PAGE)
     {
+        exception_address = exception_info->ExceptionRecord->ExceptionAddress;
+
         for (HookInfo_t& hook_info : hooks)
         {
 #ifdef _WIN64            
@@ -122,11 +123,8 @@ LONG veh::VectoredExceptionHandler(EXCEPTION_POINTERS* exception_info)
     }
     else if (exception_info->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP)
     {
-        for (HookInfo_t& hook_info : hooks)
-        {
-            DWORD tmp;
-            VirtualProtect(hook_info.source, system_info.dwPageSize, PAGE_EXECUTE_READ | PAGE_GUARD, &tmp);
-        }
+        DWORD tmp;
+        VirtualProtect(exception_address, system_info.dwPageSize, PAGE_EXECUTE_READ | PAGE_GUARD, &tmp);
 
         return EXCEPTION_CONTINUE_EXECUTION;
     }
