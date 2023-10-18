@@ -97,12 +97,8 @@ bool veh::AreInSamePage(void* first, void* second)
 
 LONG veh::VectoredExceptionHandler(EXCEPTION_POINTERS* exception_info)
 {
-    static void* exception_address{};
-
     if (exception_info->ExceptionRecord->ExceptionCode == EXCEPTION_GUARD_PAGE)
     {
-        exception_address = exception_info->ExceptionRecord->ExceptionAddress;
-
         for (HookInfo_t& hook_info : hooks)
         {
 #ifdef _WIN64            
@@ -123,8 +119,11 @@ LONG veh::VectoredExceptionHandler(EXCEPTION_POINTERS* exception_info)
     }
     else if (exception_info->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP)
     {
-        DWORD tmp;
-        VirtualProtect(exception_address, system_info.dwPageSize, PAGE_EXECUTE_READ | PAGE_GUARD, &tmp);
+        for (HookInfo_t& hook_info : hooks)
+        {
+            DWORD tmp;
+            VirtualProtect(hook_info.source, system_info.dwPageSize, PAGE_EXECUTE_READ | PAGE_GUARD, &tmp);
+        }
 
         return EXCEPTION_CONTINUE_EXECUTION;
     }
