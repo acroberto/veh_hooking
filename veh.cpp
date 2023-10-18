@@ -107,9 +107,9 @@ LONG veh::VectoredExceptionHandler(EXCEPTION_POINTERS* exception_info)
                 exception_info->ContextRecord->Rip = (DWORD64)hook_info.destination;
             }
 #else
-            if (exception_info->ContextRecord->Eip == (DWORD64)hook_info.source)
+            if (exception_info->ContextRecord->Eip == (DWORD)hook_info.source)
             {
-                exception_info->ContextRecord->Eip = (DWORD64)hook_info.destination;
+                exception_info->ContextRecord->Eip = (DWORD)hook_info.destination;
             }
 #endif
         }
