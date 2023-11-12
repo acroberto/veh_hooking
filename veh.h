@@ -12,12 +12,9 @@ struct HookInfo_t
 
 namespace veh
 {
-    bool Setup();
+    void Setup();
     bool Hook(void* source, void* destination);
-    bool Unhook(void* source);
-    bool UnhookAll();
     void Destroy();
-    bool AreInSamePage(void* first, void* second);
     LONG VectoredExceptionHandler(EXCEPTION_POINTERS* exception_info);
 
     template <typename ReturnType, typename Prototype, typename... Args>
@@ -32,8 +29,18 @@ template <typename ReturnType, typename Prototype, typename... Args>
 ReturnType veh::CallOriginal(Prototype source, Args... args)
 {
     DWORD old_protection;
-    VirtualProtect(source, system_info.dwPageSize, PAGE_EXECUTE_READ, &old_protection);
-    ReturnType result = source(args...);
-    VirtualProtect(source, system_info.dwPageSize, old_protection, &old_protection);
-    return result;
+
+    if constexpr (std::is_void_v<ReturnType>) 
+    {
+        VirtualProtect(source, system_info.dwPageSize, PAGE_EXECUTE_READ, &old_protection);
+        source(args...);
+        VirtualProtect(source, system_info.dwPageSize, old_protection, &old_protection);
+    }
+    else 
+    {
+        VirtualProtect(source, system_info.dwPageSize, PAGE_EXECUTE_READ, &old_protection);
+        ReturnType result = source(args...);
+        VirtualProtect(source, system_info.dwPageSize, old_protection, &old_protection);
+        return result;
+    }
 }
