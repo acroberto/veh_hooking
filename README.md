@@ -1,45 +1,39 @@
 # veh_hooking
 x64/x86 Function Hooking through VectoredExceptionHandler (PAGE_GUARD method)
 
-Anti-cheat safe with little to no impact on performance
+Anti-cheat safe in most games with little performance loss in some situations
 
 # How To Use
 - Call veh::Setup()
-- Hook functions through veh::Hook()
-- In the end unhook functions with veh::Unhook / veh::UnhookAll and call veh::Destroy()
+- Hook functions through veh::Hook(old, new)
+- Unhook functions with veh::Destroy() (you will need to call veh::Setup() again if you wanna hook functions again)
 
-To call the original function use veh::CallOriginal<ReturnType>(original, args)
+To call the original function from inside the hook function use veh::CallOriginal<ReturnType>(original, args)
 
 # Example
-
 ```cpp
-bool hooks::CreateMove_hk(void* csgo_input, uint32_t a2, uint8_t a3)
+void hooks::Setup()
 {
-    bool result = veh::CallOriginal<bool>(CreateMove, csgo_input, a2, a3);
-
-    std::cout << "createmove called" << std::endl;
-
-    return result;
+    veh::Setup();
+    veh::Hook(Present, Present_hk);
+    veh::Hook(CreateMove, CreateMove_hk);
 }
 
-int MainThread(HMODULE hModule)
+bool hooks::CreateMove_hk(CCSGOInput* csgo_input, uint32_t slot, uint64_t a3, uint8_t a4)
 {
-    AllocConsole();
-    FILE* file;
-    freopen_s(&file, "CONOUT$", "w", stdout);
+    bool result = veh::CallOriginal<bool>(CreateMove, csgo_input, slot, a3, a4);
 
-    veh::Setup();
-    veh::Hook(hooks::CreateMove, hooks::CreateMove_hk);
+    if (!globals::Update() || !globals::local_pawn->m_pGameSceneNode())
+        return result;
 
-    while (!GetAsyncKeyState(VK_END))
-        Sleep(100);
+    CUserCmd* user_cmd = csgo_input->GetUserCmd(slot);
+    globals::view_angles = user_cmd->base_user_cmd->msg_qangle->angles;
+    globals::shoot_position = globals::local_pawn->m_pGameSceneNode()->m_vecAbsOrigin() + globals::local_pawn->m_vecViewOffset();
 
-    veh::UnhookAll();
-    veh::Destroy();
+    aim_assist::Tick(user_cmd, csgo_input, slot);
+    triggerbot::Tick(user_cmd);
+    misc::AutoFire(user_cmd);
 
-    fclose(stdout);
-    FreeConsole();
-    FreeLibraryAndExitThread(hModule, 0);
-    return 0;
+    return result;
 }
 ```
