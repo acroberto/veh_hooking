@@ -19,6 +19,17 @@ void hooks::Setup()
     veh::Hook(CreateMove, CreateMove_hk);
 }
 
+void hooks::Destroy()
+{
+    veh::Destroy();
+
+    if (ImGui::GetCurrentContext())
+    {
+        ImGui_ImplDX11_Shutdown();
+        ImGui_ImplWin32_Shutdown();
+    }
+}
+
 bool hooks::CreateMove_hk(CCSGOInput* csgo_input, uint32_t slot, uint64_t a3, uint8_t a4)
 {
     bool result = veh::CallOriginal<bool>(CreateMove, csgo_input, slot, a3, a4);
