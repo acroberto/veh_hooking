@@ -30,9 +30,10 @@ bool veh::Hook(void* source, void* destination)
 
 void veh::Destroy()
 {
+    std::vector<HookInfo_t> _hooks(hooks);
     hooks.clear();
 
-    for (HookInfo_t& hook_info : hooks)
+    for (HookInfo_t& hook_info : _hooks)
     {
         DWORD tmp;
         VirtualProtect(hook_info.source, system_info.dwPageSize, PAGE_EXECUTE_READ, &tmp);
