@@ -1,5 +1,5 @@
 # veh_hooking
-x64/x86 Function Hooking through VectoredExceptionHandler (PAGE_GUARD method)
+x64/x86 Hooking through VectoredExceptionHandler (PAGE_GUARD method)
 
 Anti-cheat safe in most games with little performance loss in some situations
 
