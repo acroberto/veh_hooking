@@ -12,6 +12,7 @@ To call the original function from inside the hook function use veh::CallOrigina
 
 # Example
 ```cpp
+
 void hooks::Setup()
 {
     veh::Setup();
