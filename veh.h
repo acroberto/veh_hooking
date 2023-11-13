@@ -6,8 +6,6 @@ struct HookInfo_t
 {
     void* source;
     void* destination;
-
-    bool operator==(HookInfo_t& other) { return (source == other.source && destination == other.destination); }
 };
 
 namespace veh
